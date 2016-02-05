@@ -223,10 +223,14 @@ class RopeFunctionsMixin(object):
 
         real_path, def_lineno = (None, None)
         try:
-            def_resource, def_lineno = get_definition_location(
-                project, source, loc, resource=resource, maxfixes=3)
-            if def_resource:
-                real_path = def_resource.real_path
+            row, col = loc
+            script = jedi.Script(source, row + 1, col, file_path)
+            definitions = script.goto_assignments()
+            # definitions = script.goto_definitions()
+            if definitions:
+                logging.debug(definitions)
+                real_path = definitions[0].module_path
+                def_lineno = definitions[0].start_pos[0]
         except ModuleSyntaxError:
             pass
 

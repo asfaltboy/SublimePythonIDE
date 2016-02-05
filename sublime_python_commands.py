@@ -129,18 +129,13 @@ class PythonGotoDefinitionCommand(sublime_plugin.WindowCommand):
     @python_only
     def run(self, *args):
         view = self.window.active_view()
-        row, col = view.rowcol(view.sel()[0].a)
-        offset = view.text_point(row, col)
         path = file_or_buffer_name(view)
         source = view.substr(sublime.Region(0, view.size()))
-        if view.substr(offset) in [u'(', u')']:
-            offset = view.text_point(row, col - 1)
-
         proxy = proxy_for(view)
         if not proxy:
             return
         def_result = proxy.definition_location(
-            source, root_folder_for(view), path, offset)
+            source, root_folder_for(view), path, view.rowcol(view.sel()[0].a))
 
         if not def_result or def_result == [None, None]:
             return
