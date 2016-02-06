@@ -40,5 +40,8 @@
     "pyflakes_ignore": [],
 
     // If the organize imports refactoring should be called on every file save
-    "python_organize_imports_on_save": false
+    "python_organize_imports_on_save": false,
+
+    // Which lookup method to use; one of "rope" / "jedi-assignment" / "jedi-definition"
+    "definition_lookup_method": "rope"
 }

@@ -208,7 +208,47 @@ class RopeFunctionsMixin(object):
 
         return doc
 
-    def definition_location(self, source, project_path, file_path, loc):
+    @staticmethod
+    def _jedi_definition_location(source, loc, file_path, goto_assignment=False):
+        row, col = loc
+        script = jedi.Script(source, row + 1, col, file_path)
+        if goto_assignment:
+            definitions = script.goto_assignments()
+        else:
+            definitions = script.goto_definitions()
+        if definitions:
+            logging.debug(definitions)
+            real_path = definitions[0].module_path
+            def_lineno = definitions[0].start_pos[0]
+            return real_path, def_lineno
+
+    @staticmethod
+    def _get_offset(source, loc):
+        row, col = loc
+        offset = 0
+        for i, line in enumerate(source.splitlines(True)):
+            if i > row:
+                break
+            elif i == row:
+                offset += col
+            else:
+                offset += len(line)
+        return offset
+
+    @staticmethod
+    def _rope_definition_location(source, offset, file_path, project, resource):
+        try:
+            # if view.substr(offset) in [u'(', u')']:
+            #     offset = view.text_point(row, col - 1)
+            def_resource, def_lineno = get_definition_location(
+                project, source, offset, resource=resource, maxfixes=3)
+            if def_resource:
+                real_path = def_resource.real_path
+                return real_path, def_lineno
+        except ModuleSyntaxError:
+            pass
+
+    def definition_location(self, source, project_path, file_path, loc, method='jedi-assignment'):
         """
         Get a global definition location and returns it back to the editor
 
@@ -216,23 +256,32 @@ class RopeFunctionsMixin(object):
         :param project_path: the actual project_path
         :param file_path: the actual file path
         :param loc: the buffer location
+        :param method: the lookup to use (rope/jedi-assignment/jedi-definition)
         :returns: a tuple containing the path and the line number
         """
 
-        project, resource = self._get_resource(project_path, file_path, source)
-
         real_path, def_lineno = (None, None)
-        try:
-            row, col = loc
-            script = jedi.Script(source, row + 1, col, file_path)
-            definitions = script.goto_assignments()
-            # definitions = script.goto_definitions()
-            if definitions:
-                logging.debug(definitions)
-                real_path = definitions[0].module_path
-                def_lineno = definitions[0].start_pos[0]
-        except ModuleSyntaxError:
-            pass
+        logging.debug("Lookup up definition with method %s", method)
+        if method == 'jedi-assignment':
+            result = self._jedi_definition_location(source, loc, file_path,
+                                                    goto_assignment=True)
+        elif method == 'jedi-definition':
+            result = self._jedi_definition_location(source, loc, file_path)
+        elif method == 'rope':
+            project, resource = self._get_resource(project_path, file_path,
+                                                   source)
+            offset = self._get_offset(source, loc)
+            result = self._rope_definition_location(source, offset, file_path,
+                                                    project, resource)
+        else:
+            sys.stderr.write('SublimePythonIDE Server Error: invalid'
+                             'definition_location method "%s"')
+            result = None
+
+        if result:
+            real_path, def_lineno = result
+
+        logging.debug('%s %s %s', loc, real_path, def_lineno)
 
         return real_path, def_lineno
 

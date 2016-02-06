@@ -134,8 +134,10 @@ class PythonGotoDefinitionCommand(sublime_plugin.WindowCommand):
         proxy = proxy_for(view)
         if not proxy:
             return
+        lookup_method = get_setting("definition_lookup_method", default_value='rope')
         def_result = proxy.definition_location(
-            source, root_folder_for(view), path, view.rowcol(view.sel()[0].a))
+            source, root_folder_for(view), path, view.rowcol(view.sel()[0].a),
+            lookup_method)
 
         if not def_result or def_result == [None, None]:
             return
